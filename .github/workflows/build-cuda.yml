@@ -143,6 +143,8 @@ jobs:
               
               echo '=== Configuring build with Ninja ==='
               export LIBRARY_PATH="/usr/local/cuda/lib64/stubs${LIBRARY_PATH:+:$LIBRARY_PATH}"
+              
+              ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
               cmake -B build -S . \
                 -G Ninja \
                 -DGGML_CUDA=ON \
