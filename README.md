@@ -29,9 +29,10 @@ The official llama.cpp repository does not provide pre-built CUDA binaries. This
 | 8.6 | RTX 3000 series | ✅ | ✅ |
 | 8.9 | RTX 4000 series, L4, L40 | ✅ | ✅ |
 | 9.0 | H100, H200 | ✅ | ✅ |
-| 10.0 | B100, B200, GB200 (Blackwell) | ❌ | ✅ |
+| 10.0 | B100, B200, GB200 | ❌ | ✅ |
+| 12.0 | RTX Pro series, RTX 5000 series | ❌ | ✅ |
 
-**Note:** Blackwell architectures (10.0) require CUDA 12.8 or later.
+**Note:** Blackwell architectures (10.0 & 12.0) require CUDA 12.8 or later.
 
 ## Usage
 
