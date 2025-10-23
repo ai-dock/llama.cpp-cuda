@@ -143,6 +143,7 @@ jobs:
                 -DCMAKE_CUDA_ARCHITECTURES='${{ matrix.architectures }}' \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DBUILD_SHARED_LIBS=OFF \
+                -DGGML_NATIVE=OFF \
                 -DLLAMA_BUILD_TESTS=OFF \
                 -DLLAMA_BUILD_EXAMPLES=OFF \
                 -DLLAMA_BUILD_SERVER=ON
@@ -184,6 +185,9 @@ jobs:
           
           # Remove Docker image to free space
           docker rmi nvidia/cuda:${{ matrix.cuda_tag }} || true
+          
+          # Fix permissions for files created by root in container
+          sudo chown -R $(id -u):$(id -g) $PWD
           
           echo "=== Final disk usage ==="
           df -h
