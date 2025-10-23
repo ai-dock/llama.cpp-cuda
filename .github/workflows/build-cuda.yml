@@ -61,18 +61,23 @@ jobs:
         cuda_version: ['12.4.1', '12.6.3', '12.8.1', '12.9.1', '13.0.1']
         include:
           - cuda_version: '12.4.1'
+            cuda_version_short: '12.4'
             cuda_tag: '12.4.1-cudnn-devel-ubuntu22.04'
             architectures: '75;80;86;89;90'
           - cuda_version: '12.6.3'
+            cuda_version_short: '12.6'
             cuda_tag: '12.6.3-cudnn-devel-ubuntu22.04'
             architectures: '75;80;86;89;90'
           - cuda_version: '12.8.1'
+            cuda_version_short: '12.8'
             cuda_tag: '12.8.1-cudnn-devel-ubuntu22.04'
             architectures: '75;80;86;89;90;100'
           - cuda_version: '12.9.1'
+            cuda_version_short: '12.9'
             cuda_tag: '12.9.1-cudnn-devel-ubuntu22.04'
             architectures: '75;80;86;89;90;100;120'
           - cuda_version: '13.0.1'
+            cuda_version_short: '13.0'
             cuda_tag: '13.0.1-cudnn-devel-ubuntu22.04'
             architectures: '75;80;86;89;90;100;120'
     
@@ -142,42 +147,43 @@ jobs:
                 -DGGML_CUDA=ON \
                 -DCMAKE_CUDA_ARCHITECTURES='${{ matrix.architectures }}' \
                 -DCMAKE_BUILD_TYPE=Release \
-                -DBUILD_SHARED_LIBS=OFF \
+                -DBUILD_SHARED_LIBS=ON \
                 -DGGML_NATIVE=OFF \
                 -DLLAMA_BUILD_TESTS=OFF \
                 -DLLAMA_BUILD_EXAMPLES=OFF \
-                -DLLAMA_BUILD_SERVER=ON
+                -DLLAMA_BUILD_SERVER=ON \
+                -DGGML_STATIC=OFF
               
               echo '=== Building with Ninja (parallel: all cores) ==='
               cmake --build build --config Release -j\$(nproc)
               
               echo '=== Copying binaries ==='
               cd /workspace
-              mkdir -p binaries/cuda-${{ matrix.cuda_version }}
+              mkdir -p binaries/cuda-${{ matrix.cuda_version_short }}
               
               # Copy only essential binaries
-              cp llama.cpp/build/bin/llama-cli binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
-              cp llama.cpp/build/bin/llama-server binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
-              cp llama.cpp/build/bin/llama-bench binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
-              cp llama.cpp/build/bin/llama-quantize binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
-              cp llama.cpp/build/bin/llama-embedding binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp llama.cpp/build/bin/llama-cli binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
+              cp llama.cpp/build/bin/llama-server binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
+              cp llama.cpp/build/bin/llama-bench binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
+              cp llama.cpp/build/bin/llama-quantize binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
+              cp llama.cpp/build/bin/llama-embedding binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
               
               # Copy essential libraries
-              cp llama.cpp/build/ggml/src/libggml*.so* binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
-              cp llama.cpp/build/src/libllama.so binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp llama.cpp/build/ggml/src/libggml*.so* binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
+              cp llama.cpp/build/src/libllama.so binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
               
               # Strip binaries to reduce size
-              strip binaries/cuda-${{ matrix.cuda_version }}/* 2>/dev/null || true
+              strip binaries/cuda-${{ matrix.cuda_version_short }}/* 2>/dev/null || true
               
               echo '=== Creating version info ==='
-              echo 'llama.cpp version: ${{ needs.check-release.outputs.release_tag }}' > binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'CUDA version: ${{ matrix.cuda_version }}' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'Architectures: ${{ matrix.architectures }}' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'Build date: '\$(date -u +%Y-%m-%d) >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'Build hash: ${{ needs.check-release.outputs.release_hash }}' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'llama.cpp version: ${{ needs.check-release.outputs.release_tag }}' > binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
+              echo 'CUDA version: ${{ matrix.cuda_version }}' >> binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
+              echo 'Architectures: ${{ matrix.architectures }}' >> binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
+              echo 'Build date: '\$(date -u +%Y-%m-%d) >> binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
+              echo 'Build hash: ${{ needs.check-release.outputs.release_hash }}' >> binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
               
               echo '=== Build complete ==='
-              ls -lh binaries/cuda-${{ matrix.cuda_version }}/
+              ls -lh binaries/cuda-${{ matrix.cuda_version_short }}/
               
               echo '=== Cleaning up build directory ==='
               rm -rf llama.cpp
@@ -194,13 +200,15 @@ jobs:
 
       - name: Create tarball
         run: |
-          cd binaries
-          tar -czf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-${{ matrix.cuda_version }}.tar.gz cuda-${{ matrix.cuda_version }}
+          cd binaries/cuda-${{ matrix.cuda_version_short }}
+          tar -czf ../llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-${{ matrix.cuda_version_short }}.tar.gz .
+          cd ..
+          ls -lh *.tar.gz
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llama.cpp-cuda-${{ matrix.cuda_version }}
+          name: llama.cpp-cuda-${{ matrix.cuda_version_short }}
           path: binaries/*.tar.gz
           retention-days: 1
 
@@ -238,11 +246,11 @@ jobs:
             **Commit:** ${{ needs.check-release.outputs.release_hash }}
             
             ## CUDA Versions
-            - CUDA 12.4.1 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
-            - CUDA 12.6.3 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
-            - CUDA 12.8.1 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0
-            - CUDA 12.9.1 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
-            - CUDA 13.0.1 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+            - CUDA 12.4 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
+            - CUDA 12.6 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
+            - CUDA 12.8 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0
+            - CUDA 12.9 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+            - CUDA 13.0 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
             
             ## Architecture Reference
             - 7.5: Tesla T4, RTX 2000 series, Quadro RTX
@@ -256,8 +264,7 @@ jobs:
             ## Usage
             Download the appropriate tarball for your CUDA version and extract:
             ```bash
-            tar -xzf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-X.X.X.tar.gz
-            cd cuda-X.X.X
+            tar -xzf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-12.8.tar.gz
             ./llama-cli --help
             ```
           files: release-assets/*

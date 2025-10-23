@@ -14,11 +14,11 @@ The official llama.cpp repository does not provide pre-built CUDA binaries. This
 ## Supported Configurations
 
 ### CUDA Versions
-- CUDA 12.4.1
-- CUDA 12.6.3
-- CUDA 12.8.1
-- CUDA 12.9.1
-- CUDA 13.0.1
+- CUDA 12.4
+- CUDA 12.6
+- CUDA 12.8
+- CUDA 12.9
+- CUDA 13.0
 
 ### GPU Architectures
 
@@ -39,12 +39,12 @@ The official llama.cpp repository does not provide pre-built CUDA binaries. This
 ### Download
 
 1. Go to the [Releases](../../releases) page
-2. Download the tarball for your CUDA version (e.g., `llama.cpp-bXXXX-cuda-12.6.3.tar.gz`)
+2. Download the tarball for your CUDA version (e.g., `llama.cpp-bXXXX-cuda-12.6.tar.gz`)
 3. Extract the archive:
 
 ```bash
-tar -xzf llama.cpp-bXXXX-cuda-12.6.3.tar.gz
-cd cuda-12.6.3
+tar -xzf llama.cpp-bXXXX-cuda-12.6.tar.gz
+cd cuda-12.6
 ```
 
 ### Run
