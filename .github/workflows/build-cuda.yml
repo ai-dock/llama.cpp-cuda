@@ -80,60 +80,120 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Free up disk space
+      - name: Maximize build space
         run: |
+          echo "=== Initial Disk Space ==="
+          df -h
+          
+          echo "=== Removing unnecessary packages ==="
+          sudo apt-get remove -y '^aspnetcore-.*' || true
+          sudo apt-get remove -y '^dotnet-.*' --fix-missing || true
+          sudo apt-get remove -y '^llvm-.*' --fix-missing || true
+          sudo apt-get remove -y 'php.*' --fix-missing || true
+          sudo apt-get remove -y '^mongodb-.*' --fix-missing || true
+          sudo apt-get remove -y '^mysql-.*' --fix-missing || true
+          sudo apt-get remove -y azure-cli google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri --fix-missing || true
+          sudo apt-get autoremove -y || true
+          sudo apt-get clean || true
+          
+          echo "=== Removing large directories ==="
           sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
-          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/.ghcup
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          
+          # Clean docker system
+          docker system prune -af || true
+          
+          echo "=== After Cleanup ==="
+          df -h
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Create ramdisk for build
+        run: |
+          # Create 8GB ramdisk for build
+          sudo mkdir -p /mnt/ramdisk
+          sudo mount -t tmpfs -o size=8G tmpfs /mnt/ramdisk
+          echo "=== Ramdisk created ==="
+          df -h /mnt/ramdisk
 
       - name: Build llama.cpp with CUDA
         run: |
-          docker run --rm -v $PWD:/workspace \
+          # Pull Docker image
+          docker pull nvidia/cuda:${{ matrix.cuda_tag }}
+          
+          # Run build in container with ramdisk
+          docker run --rm \
+            -v $PWD:/workspace \
+            -v /mnt/ramdisk:/build \
             nvidia/cuda:${{ matrix.cuda_tag }} \
             bash -c "
               set -e
-              cd /workspace
               
-              # Install dependencies
-              apt-get update
-              apt-get install -y git cmake build-essential libcurl4-openssl-dev
+              echo '=== Installing minimal dependencies ==='
+              apt-get update -qq
+              apt-get install -y --no-install-recommends git cmake build-essential libcurl4-openssl-dev ca-certificates
+              apt-get clean
+              rm -rf /var/lib/apt/lists/*
               
-              # Clone llama.cpp at the specific release
-              git clone https://github.com/ggml-org/llama.cpp.git
+              echo '=== Cloning llama.cpp ==='
+              cd /build
+              git clone --depth 1 --branch ${{ needs.check-release.outputs.release_tag }} https://github.com/ggml-org/llama.cpp.git || \
+                (git clone https://github.com/ggml-org/llama.cpp.git && cd llama.cpp && git checkout ${{ needs.check-release.outputs.release_hash }})
               cd llama.cpp
-              git checkout ${{ needs.check-release.outputs.release_hash }}
               
-              # Create build directory
-              mkdir -p build
-              cd build
-              
-              # Configure with CUDA support
-              cmake .. \
+              echo '=== Configuring build ==='
+              cmake -B build -S . \
                 -DGGML_CUDA=ON \
                 -DCMAKE_CUDA_ARCHITECTURES='${{ matrix.architectures }}' \
                 -DCMAKE_BUILD_TYPE=Release \
-                -DBUILD_SHARED_LIBS=OFF
+                -DBUILD_SHARED_LIBS=OFF \
+                -DLLAMA_BUILD_TESTS=OFF \
+                -DLLAMA_BUILD_EXAMPLES=OFF \
+                -DLLAMA_BUILD_SERVER=ON
               
-              # Build
-              cmake --build . --config Release -j\$(nproc)
+              echo '=== Building (parallel: 2) ==='
+              cmake --build build --config Release -j2
               
-              # Copy binaries to workspace
-              cd /workspace
-              mkdir -p binaries/cuda-${{ matrix.cuda_version }}
-              cp llama.cpp/build/bin/* binaries/cuda-${{ matrix.cuda_version }}/ || true
-              cp llama.cpp/build/ggml/src/libggml.so binaries/cuda-${{ matrix.cuda_version }}/ || true
-              cp llama.cpp/build/src/libllama.so binaries/cuda-${{ matrix.cuda_version }}/ || true
+              echo '=== Copying binaries ==='
+              mkdir -p /workspace/binaries/cuda-${{ matrix.cuda_version }}
               
-              # Create version info
-              echo 'llama.cpp version: ${{ needs.check-release.outputs.release_tag }}' > binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'CUDA version: ${{ matrix.cuda_version }}' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'Architectures: ${{ matrix.architectures }}' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'Build date: $(date -u +%Y-%m-%d)' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              # Copy only essential binaries
+              cp build/bin/llama-cli /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp build/bin/llama-server /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp build/bin/llama-bench /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp build/bin/llama-quantize /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp build/bin/llama-embedding /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              
+              # Copy essential libraries
+              cp build/ggml/src/libggml*.so* /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp build/src/libllama.so /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              
+              # Strip binaries to reduce size
+              strip /workspace/binaries/cuda-${{ matrix.cuda_version }}/* 2>/dev/null || true
+              
+              echo '=== Creating version info ==='
+              echo 'llama.cpp version: ${{ needs.check-release.outputs.release_tag }}' > /workspace/binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'CUDA version: ${{ matrix.cuda_version }}' >> /workspace/binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'Architectures: ${{ matrix.architectures }}' >> /workspace/binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'Build date: '\$(date -u +%Y-%m-%d) >> /workspace/binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'Build hash: ${{ needs.check-release.outputs.release_hash }}' >> /workspace/binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              
+              echo '=== Build complete ==='
+              ls -lh /workspace/binaries/cuda-${{ matrix.cuda_version }}/
             "
+          
+          # Remove Docker image to free space
+          docker rmi nvidia/cuda:${{ matrix.cuda_tag }} || true
+          
+          # Clean up ramdisk
+          sudo umount /mnt/ramdisk || true
+          
+          echo "=== Final disk usage ==="
+          df -h
 
       - name: Create tarball
         run: |
@@ -183,9 +243,9 @@ jobs:
             ## CUDA Versions
             - CUDA 12.4.1 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
             - CUDA 12.6.3 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
-            - CUDA 12.8.0 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
-            - CUDA 12.9.0 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
-            - CUDA 13.0.0 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+            - CUDA 12.8.1 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0
+            - CUDA 12.9.1 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+            - CUDA 13.0.1 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
             
             ## Architecture Reference
             - 7.5: Tesla T4, RTX 2000 series, Quadro RTX
