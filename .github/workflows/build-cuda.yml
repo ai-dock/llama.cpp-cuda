@@ -112,41 +112,33 @@ jobs:
           echo "=== After Cleanup ==="
           df -h
 
-      - name: Create ramdisk for build
-        run: |
-          # Create 8GB ramdisk for build
-          sudo mkdir -p /mnt/ramdisk
-          sudo mount -t tmpfs -o size=8G tmpfs /mnt/ramdisk
-          echo "=== Ramdisk created ==="
-          df -h /mnt/ramdisk
-
       - name: Build llama.cpp with CUDA
         run: |
           # Pull Docker image
           docker pull nvidia/cuda:${{ matrix.cuda_tag }}
           
-          # Run build in container with ramdisk
+          # Run build in container
           docker run --rm \
             -v $PWD:/workspace \
-            -v /mnt/ramdisk:/build \
             nvidia/cuda:${{ matrix.cuda_tag }} \
             bash -c "
               set -e
               
               echo '=== Installing minimal dependencies ==='
               apt-get update -qq
-              apt-get install -y --no-install-recommends git cmake build-essential libcurl4-openssl-dev ca-certificates
+              apt-get install -y --no-install-recommends git cmake ninja-build build-essential libcurl4-openssl-dev ca-certificates
               apt-get clean
               rm -rf /var/lib/apt/lists/*
               
               echo '=== Cloning llama.cpp ==='
-              cd /build
+              cd /workspace
               git clone --depth 1 --branch ${{ needs.check-release.outputs.release_tag }} https://github.com/ggml-org/llama.cpp.git || \
                 (git clone https://github.com/ggml-org/llama.cpp.git && cd llama.cpp && git checkout ${{ needs.check-release.outputs.release_hash }})
               cd llama.cpp
               
-              echo '=== Configuring build ==='
+              echo '=== Configuring build with Ninja ==='
               cmake -B build -S . \
+                -G Ninja \
                 -DGGML_CUDA=ON \
                 -DCMAKE_CUDA_ARCHITECTURES='${{ matrix.architectures }}' \
                 -DCMAKE_BUILD_TYPE=Release \
@@ -155,42 +147,43 @@ jobs:
                 -DLLAMA_BUILD_EXAMPLES=OFF \
                 -DLLAMA_BUILD_SERVER=ON
               
-              echo '=== Building (parallel: 2) ==='
-              cmake --build build --config Release -j2
+              echo '=== Building with Ninja (parallel: all cores) ==='
+              cmake --build build --config Release -j\$(nproc)
               
               echo '=== Copying binaries ==='
-              mkdir -p /workspace/binaries/cuda-${{ matrix.cuda_version }}
+              cd /workspace
+              mkdir -p binaries/cuda-${{ matrix.cuda_version }}
               
               # Copy only essential binaries
-              cp build/bin/llama-cli /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
-              cp build/bin/llama-server /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
-              cp build/bin/llama-bench /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
-              cp build/bin/llama-quantize /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
-              cp build/bin/llama-embedding /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp llama.cpp/build/bin/llama-cli binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp llama.cpp/build/bin/llama-server binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp llama.cpp/build/bin/llama-bench binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp llama.cpp/build/bin/llama-quantize binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp llama.cpp/build/bin/llama-embedding binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
               
               # Copy essential libraries
-              cp build/ggml/src/libggml*.so* /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
-              cp build/src/libllama.so /workspace/binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp llama.cpp/build/ggml/src/libggml*.so* binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
+              cp llama.cpp/build/src/libllama.so binaries/cuda-${{ matrix.cuda_version }}/ 2>/dev/null || true
               
               # Strip binaries to reduce size
-              strip /workspace/binaries/cuda-${{ matrix.cuda_version }}/* 2>/dev/null || true
+              strip binaries/cuda-${{ matrix.cuda_version }}/* 2>/dev/null || true
               
               echo '=== Creating version info ==='
-              echo 'llama.cpp version: ${{ needs.check-release.outputs.release_tag }}' > /workspace/binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'CUDA version: ${{ matrix.cuda_version }}' >> /workspace/binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'Architectures: ${{ matrix.architectures }}' >> /workspace/binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'Build date: '\$(date -u +%Y-%m-%d) >> /workspace/binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
-              echo 'Build hash: ${{ needs.check-release.outputs.release_hash }}' >> /workspace/binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'llama.cpp version: ${{ needs.check-release.outputs.release_tag }}' > binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'CUDA version: ${{ matrix.cuda_version }}' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'Architectures: ${{ matrix.architectures }}' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'Build date: '\$(date -u +%Y-%m-%d) >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'Build hash: ${{ needs.check-release.outputs.release_hash }}' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
               
               echo '=== Build complete ==='
-              ls -lh /workspace/binaries/cuda-${{ matrix.cuda_version }}/
+              ls -lh binaries/cuda-${{ matrix.cuda_version }}/
+              
+              echo '=== Cleaning up build directory ==='
+              rm -rf llama.cpp
             "
           
           # Remove Docker image to free space
           docker rmi nvidia/cuda:${{ matrix.cuda_tag }} || true
-          
-          # Clean up ramdisk
-          sudo umount /mnt/ramdisk || true
           
           echo "=== Final disk usage ==="
           df -h
