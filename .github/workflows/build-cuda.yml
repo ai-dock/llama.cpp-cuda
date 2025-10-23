@@ -71,7 +71,7 @@ jobs:
           - cuda_version: '12.8.1'
             cuda_version_short: '12.8'
             cuda_tag: '12.8.1-cudnn-devel-ubuntu22.04'
-            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual'
+            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual;120-virtual'
           - cuda_version: '12.9.1'
             cuda_version_short: '12.9'
             cuda_tag: '12.9.1-cudnn-devel-ubuntu22.04'
@@ -163,28 +163,20 @@ jobs:
               echo '=== Copying binaries ==='
               cd /workspace
               mkdir -p binaries/cuda-${{ matrix.cuda_version_short }}
-              
-              # Copy only essential binaries
-              cp llama.cpp/build/bin/llama-cli binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
-              cp llama.cpp/build/bin/llama-server binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
-              cp llama.cpp/build/bin/llama-bench binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
-              cp llama.cpp/build/bin/llama-quantize binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
-              cp llama.cpp/build/bin/llama-embedding binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
-              
-              # Copy essential libraries
-              cp llama.cpp/build/ggml/src/libggml*.so* binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
-              cp llama.cpp/build/src/libllama.so binaries/cuda-${{ matrix.cuda_version_short }}/ 2>/dev/null || true
-              
-              # Strip binaries to reduce size
-              strip binaries/cuda-${{ matrix.cuda_version_short }}/* 2>/dev/null || true
-              
+
+              # Copy everything from build/bin
+              cp -r llama.cpp/build/bin/* binaries/cuda-${{ matrix.cuda_version_short }}/
+
+              # Strip binaries to reduce size (executables only, not .so files)
+              find binaries/cuda-${{ matrix.cuda_version_short }}/ -type f -executable ! -name "*.so*" -exec strip {} \; 2>/dev/null || true
+
               echo '=== Creating version info ==='
               echo 'llama.cpp version: ${{ needs.check-release.outputs.release_tag }}' > binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
               echo 'CUDA version: ${{ matrix.cuda_version }}' >> binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
               echo 'Architectures: ${{ matrix.architectures }}' >> binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
-              echo 'Build date: '\$(date -u +%Y-%m-%d) >> binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
+              echo 'Build date: '$(date -u +%Y-%m-%d) >> binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
               echo 'Build hash: ${{ needs.check-release.outputs.release_hash }}' >> binaries/cuda-${{ matrix.cuda_version_short }}/VERSION.txt
-              
+
               echo '=== Build complete ==='
               ls -lh binaries/cuda-${{ matrix.cuda_version_short }}/
               
@@ -203,9 +195,8 @@ jobs:
 
       - name: Create tarball
         run: |
-          cd binaries/cuda-${{ matrix.cuda_version_short }}
-          tar -czf ../llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-${{ matrix.cuda_version_short }}.tar.gz .
-          cd ..
+          cd binaries
+          tar -czf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-${{ matrix.cuda_version_short }}.tar.gz cuda-${{ matrix.cuda_version_short }}
           ls -lh *.tar.gz
 
       - name: Upload artifact
@@ -251,7 +242,7 @@ jobs:
             ## CUDA Versions
             - CUDA 12.4 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
             - CUDA 12.6 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
-            - CUDA 12.8 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0
+            - CUDA 12.8 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
             - CUDA 12.9 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
             - CUDA 13.0 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
             
@@ -261,7 +252,7 @@ jobs:
             - 8.6: RTX 3000 series
             - 8.9: RTX 4000 series, L4, L40
             - 9.0: H100, H200
-            - 10.0: B100, B200, GB200 (Blackwell)
+            - 10.0: B200
             - 12.0: RTX Pro series, RTX 50xx
             
             ## Usage
