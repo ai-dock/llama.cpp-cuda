@@ -63,23 +63,23 @@ jobs:
           - cuda_version: '12.4.1'
             cuda_version_short: '12.4'
             cuda_tag: '12.4.1-cudnn-devel-ubuntu22.04'
-            architectures: '75;80;86;89;90'
+            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual'
           - cuda_version: '12.6.3'
             cuda_version_short: '12.6'
             cuda_tag: '12.6.3-cudnn-devel-ubuntu22.04'
-            architectures: '75;80;86;89;90'
+            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual'
           - cuda_version: '12.8.1'
             cuda_version_short: '12.8'
             cuda_tag: '12.8.1-cudnn-devel-ubuntu22.04'
-            architectures: '75;80;86;89;90;100'
+            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual'
           - cuda_version: '12.9.1'
             cuda_version_short: '12.9'
             cuda_tag: '12.9.1-cudnn-devel-ubuntu22.04'
-            architectures: '75;80;86;89;90;100;120'
+            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual;120-virtual'
           - cuda_version: '13.0.1'
             cuda_version_short: '13.0'
             cuda_tag: '13.0.1-cudnn-devel-ubuntu22.04'
-            architectures: '75;80;86;89;90;100;120'
+            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual;120-virtual'
     
     steps:
       - name: Checkout
@@ -144,15 +144,14 @@ jobs:
               echo '=== Configuring build with Ninja ==='
               cmake -B build -S . \
                 -G Ninja \
+                -DCMAKE_EXE_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs"
                 -DGGML_CUDA=ON \
                 -DCMAKE_CUDA_ARCHITECTURES='${{ matrix.architectures }}' \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DBUILD_SHARED_LIBS=ON \
                 -DGGML_NATIVE=OFF \
                 -DLLAMA_BUILD_TESTS=OFF \
-                -DLLAMA_BUILD_EXAMPLES=OFF \
-                -DLLAMA_BUILD_SERVER=ON \
-                -DGGML_STATIC=OFF
+                -DLLAMA_BUILD_EXAMPLES=OFF
               
               echo '=== Building with Ninja (parallel: all cores) ==='
               cmake --build build --config Release -j\$(nproc)
