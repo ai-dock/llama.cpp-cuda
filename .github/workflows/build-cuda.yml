@@ -1,0 +1,208 @@
+name: Build llama.cpp with CUDA
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if no new release'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      release_tag: ${{ steps.check.outputs.release_tag }}
+      release_hash: ${{ steps.check.outputs.release_hash }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for new llama.cpp release
+        id: check
+        run: |
+          # Get latest release from llama.cpp
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | jq -r '.tag_name')
+          RELEASE_HASH=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | jq -r '.target_commitish')
+          
+          echo "Latest llama.cpp release: $LATEST_RELEASE"
+          echo "Release hash: $RELEASE_HASH"
+          
+          # Check if we've already built this release
+          if git tag | grep -q "^${LATEST_RELEASE}$"; then
+            echo "Release $LATEST_RELEASE already built"
+            if [ "${{ github.event.inputs.force_build }}" = "true" ]; then
+              echo "Force build enabled, building anyway"
+              echo "should_build=true" >> $GITHUB_OUTPUT
+            else
+              echo "should_build=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "New release detected: $LATEST_RELEASE"
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "release_tag=$LATEST_RELEASE" >> $GITHUB_OUTPUT
+          echo "release_hash=$RELEASE_HASH" >> $GITHUB_OUTPUT
+
+  build:
+    needs: check-release
+    if: needs.check-release.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cuda_version: ['12.4.1', '12.6.3', '12.8.1', '12.9.1', '13.0.1']
+        include:
+          - cuda_version: '12.4.1'
+            cuda_tag: '12.4.1-cudnn-devel-ubuntu22.04'
+            architectures: '75;80;86;89;90'
+          - cuda_version: '12.6.3'
+            cuda_tag: '12.6.3-cudnn-devel-ubuntu22.04'
+            architectures: '75;80;86;89;90'
+          - cuda_version: '12.8.1'
+            cuda_tag: '12.8.1-cudnn-devel-ubuntu22.04'
+            architectures: '75;80;86;89;90;100'
+          - cuda_version: '12.9.1'
+            cuda_tag: '12.9.1-cudnn-devel-ubuntu22.04'
+            architectures: '75;80;86;89;90;100;120'
+          - cuda_version: '13.0.1'
+            cuda_tag: '13.0.1-cudnn-devel-ubuntu22.04'
+            architectures: '75;80;86;89;90;100;120'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build llama.cpp with CUDA
+        run: |
+          docker run --rm -v $PWD:/workspace \
+            nvidia/cuda:${{ matrix.cuda_tag }} \
+            bash -c "
+              set -e
+              cd /workspace
+              
+              # Install dependencies
+              apt-get update
+              apt-get install -y git cmake build-essential
+              
+              # Clone llama.cpp at the specific release
+              git clone https://github.com/ggml-org/llama.cpp.git
+              cd llama.cpp
+              git checkout ${{ needs.check-release.outputs.release_hash }}
+              
+              # Create build directory
+              mkdir -p build
+              cd build
+              
+              # Configure with CUDA support
+              cmake .. \
+                -DGGML_CUDA=ON \
+                -DCMAKE_CUDA_ARCHITECTURES='${{ matrix.architectures }}' \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_SHARED_LIBS=OFF
+              
+              # Build
+              cmake --build . --config Release -j\$(nproc)
+              
+              # Copy binaries to workspace
+              cd /workspace
+              mkdir -p binaries/cuda-${{ matrix.cuda_version }}
+              cp llama.cpp/build/bin/* binaries/cuda-${{ matrix.cuda_version }}/ || true
+              cp llama.cpp/build/ggml/src/libggml.so binaries/cuda-${{ matrix.cuda_version }}/ || true
+              cp llama.cpp/build/src/libllama.so binaries/cuda-${{ matrix.cuda_version }}/ || true
+              
+              # Create version info
+              echo 'llama.cpp version: ${{ needs.check-release.outputs.release_tag }}' > binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'CUDA version: ${{ matrix.cuda_version }}' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'Architectures: ${{ matrix.architectures }}' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+              echo 'Build date: $(date -u +%Y-%m-%d)' >> binaries/cuda-${{ matrix.cuda_version }}/VERSION.txt
+            "
+
+      - name: Create tarball
+        run: |
+          cd binaries
+          tar -czf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-${{ matrix.cuda_version }}.tar.gz cuda-${{ matrix.cuda_version }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama.cpp-cuda-${{ matrix.cuda_version }}
+          path: binaries/*.tar.gz
+          retention-days: 1
+
+  release:
+    needs: [check-release, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -name "*.tar.gz" -exec cp {} release-assets/ \;
+          ls -lh release-assets/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.check-release.outputs.release_tag }}
+          name: llama.cpp ${{ needs.check-release.outputs.release_tag }} with CUDA
+          body: |
+            # llama.cpp ${{ needs.check-release.outputs.release_tag }} with CUDA Support
+            
+            Pre-built binaries of llama.cpp with CUDA support for multiple CUDA versions.
+            
+            **Source:** https://github.com/ggml-org/llama.cpp/releases/tag/${{ needs.check-release.outputs.release_tag }}
+            **Commit:** ${{ needs.check-release.outputs.release_hash }}
+            
+            ## CUDA Versions
+            - CUDA 12.4.1 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
+            - CUDA 12.6.3 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
+            - CUDA 12.8.0 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+            - CUDA 12.9.0 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+            - CUDA 13.0.0 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+            
+            ## Architecture Reference
+            - 7.5: Tesla T4, RTX 2000 series, Quadro RTX
+            - 8.0: A100
+            - 8.6: RTX 3000 series
+            - 8.9: RTX 4000 series, L4, L40
+            - 9.0: H100, H200
+            - 10.0: B100, B200, GB200 (Blackwell)
+            - 12.0: RTX Pro series, RTX 50xx
+            
+            ## Usage
+            Download the appropriate tarball for your CUDA version and extract:
+            ```bash
+            tar -xzf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-X.X.X.tar.gz
+            cd cuda-X.X.X
+            ./llama-cli --help
+            ```
+          files: release-assets/*
+          draft: false
+          prerelease: false

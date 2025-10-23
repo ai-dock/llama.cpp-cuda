@@ -1,0 +1,25 @@
+# Build artifacts
+binaries/
+artifacts/
+release-assets/
+*.tar.gz
+*.zip
+
+# llama.cpp clone
+llama.cpp/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+SETUP-CHECKLIST.md
