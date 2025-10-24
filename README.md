@@ -34,7 +34,7 @@ The official llama.cpp repository does not provide pre-built CUDA binaries. This
 | 10.0 | B200 | ❌ | ✅ |
 | 12.0 | RTX Pro series, RTX 5000 series | ❌ | ✅ |
 
-**Note:** Blackwell architectures (10.0 & 12.0) require CUDA 12.8 or later.
+**Note:** Compute Capability < 7.5 support ends with CUDA 12.9 
 
 ## Usage
 
