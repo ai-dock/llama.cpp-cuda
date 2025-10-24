@@ -63,23 +63,23 @@ jobs:
           - cuda_version: '12.4.1'
             cuda_version_short: '12.4'
             cuda_tag: '12.4.1-cudnn-devel-ubuntu22.04'
-            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual'
+            architectures: '61-virtual;70-virtual;75-virtual;80-virtual;86-virtual;89-virtual;90-virtual'
           - cuda_version: '12.6.3'
             cuda_version_short: '12.6'
             cuda_tag: '12.6.3-cudnn-devel-ubuntu22.04'
-            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual'
+            architectures: '61-virtual;70-virtual;75-virtual;80-virtual;86-virtual;89-virtual;90-virtual'
           - cuda_version: '12.8.1'
             cuda_version_short: '12.8'
             cuda_tag: '12.8.1-cudnn-devel-ubuntu22.04'
-            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual;120-virtual'
+            architectures: '61-virtual;70-virtual;75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual;120-virtual'
           - cuda_version: '12.9.1'
             cuda_version_short: '12.9'
             cuda_tag: '12.9.1-cudnn-devel-ubuntu22.04'
-            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual;120-virtual'
+            architectures: '61-virtual;70-virtual;75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual;120-virtual'
           - cuda_version: '13.0.1'
             cuda_version_short: '13.0'
             cuda_tag: '13.0.1-cudnn-devel-ubuntu22.04'
-            architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual;120-virtual'
+            architectures: '61-virtual;70-virtual;75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual;120-virtual'
     
     steps:
       - name: Checkout
@@ -240,14 +240,16 @@ jobs:
             **Commit:** ${{ needs.check-release.outputs.release_hash }}
             
             ## CUDA Versions
-            - CUDA 12.4 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
-            - CUDA 12.6 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0
-            - CUDA 12.8 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
-            - CUDA 12.9 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
-            - CUDA 13.0 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+            - CUDA 12.4 - Architectures: 6.1, 7.0, 7.5, 8.0, 8.6, 8.9, 9.0
+            - CUDA 12.6 - Architectures: 6.1, 7.0, 7.5, 8.0, 8.6, 8.9, 9.0
+            - CUDA 12.8 - Architectures: 6.1, 7.0, 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+            - CUDA 12.9 - Architectures: 6.1, 7.0, 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+            - CUDA 13.0 - Architectures: 6.1, 7.0, 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
             
             ## Architecture Reference
-            - 7.5: Tesla T4, RTX 2000 series, Quadro RTX
+            - 6.1: Titan XP, Tesla P40, GTX 10xx
+            - 7.0: Tesla V100
+            - 7.5: Tesla T4, RTX 20xx series, Quadro RTX
             - 8.0: A100
             - 8.6: RTX 3000 series
             - 8.9: RTX 4000 series, L4, L40

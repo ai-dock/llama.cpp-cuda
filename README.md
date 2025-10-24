@@ -24,12 +24,14 @@ The official llama.cpp repository does not provide pre-built CUDA binaries. This
 
 | Compute Capability | GPU Examples | CUDA 12.4/12.6 | CUDA 12.8+ |
 |-------------------|--------------|----------------|------------|
+| 6.1 | Titan XP, Tesla P40, GTX 10xx | ✅ | ✅ |
+| 7.0 | Tesla V100 | ✅ | ✅ |
 | 7.5 | Tesla T4, RTX 2000 series, Quadro RTX | ✅ | ✅ |
 | 8.0 | A100 | ✅ | ✅ |
 | 8.6 | RTX 3000 series | ✅ | ✅ |
 | 8.9 | RTX 4000 series, L4, L40 | ✅ | ✅ |
 | 9.0 | H100, H200 | ✅ | ✅ |
-| 10.0 | B100, B200, GB200 | ❌ | ✅ |
+| 10.0 | B200 | ❌ | ✅ |
 | 12.0 | RTX Pro series, RTX 5000 series | ❌ | ✅ |
 
 **Note:** Blackwell architectures (10.0 & 12.0) require CUDA 12.8 or later.
