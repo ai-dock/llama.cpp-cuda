@@ -14,38 +14,32 @@ The official llama.cpp repository does not provide pre-built CUDA binaries. This
 ## Supported Configurations
 
 ### CUDA Versions
-- CUDA 12.4
-- CUDA 12.6
 - CUDA 12.8
-- CUDA 12.9
-- CUDA 13.0
 
 ### GPU Architectures
 
-| Compute Capability | GPU Examples | CUDA 12.4/12.6 | CUDA 12.8+ |
+| Compute Capability | GPU Examples |
 |-------------------|--------------|----------------|------------|
-| 6.1 | Titan XP, Tesla P40, GTX 10xx | ✅ | ✅ |
-| 7.0 | Tesla V100 | ✅ | ✅ |
-| 7.5 | Tesla T4, RTX 2000 series, Quadro RTX | ✅ | ✅ |
-| 8.0 | A100 | ✅ | ✅ |
-| 8.6 | RTX 3000 series | ✅ | ✅ |
-| 8.9 | RTX 4000 series, L4, L40 | ✅ | ✅ |
-| 9.0 | H100, H200 | ✅ | ✅ |
-| 10.0 | B200 | ❌ | ✅ |
-| 12.0 | RTX Pro series, RTX 5000 series | ❌ | ✅ |
-
-**Note:** Compute Capability < 7.5 support ends with CUDA 12.9 
+| 6.1 | Titan XP, Tesla P40, GTX 10xx |
+| 7.0 | Tesla V100 |
+| 7.5 | Tesla T4, RTX 2000 series, Quadro RTX |
+| 8.0 | A100 |
+| 8.6 | RTX 3000 series |
+| 8.9 | RTX 4000 series, L4, L40 |
+| 9.0 | H100, H200 |
+| 10.0 | B200 |
+| 12.0 | RTX Pro series, RTX 5000 series |
 
 ## Usage
 
 ### Download
 
 1. Go to the [Releases](../../releases) page
-2. Download the tarball for your CUDA version (e.g., `llama.cpp-bXXXX-cuda-12.6.tar.gz`)
+2. Download the tarball (e.g., `llama.cpp-bXXXX-cuda-12.8.tar.gz`)
 3. Extract the archive:
 
 ```bash
-tar -xzf llama.cpp-bXXXX-cuda-12.6.tar.gz
+tar -xzf llama.cpp-bXXXX-cuda-12.8.tar.gz
 cd cuda-12.6
 ```
 
@@ -78,11 +72,7 @@ cat VERSION.txt
 
 - NVIDIA GPU with compute capability 7.5 or higher
 - Appropriate NVIDIA driver for your CUDA version:
-  - CUDA 12.4: Driver >= 550.54
-  - CUDA 12.6: Driver >= 560.28
-  - CUDA 12.8: Driver >= 570.15
-  - CUDA 12.9: Driver >= 580.13
-  - CUDA 13.0: Driver >= 590.xx
+  - CUDA 12.8+: Driver >= 570.15
 - Linux x86_64 (Ubuntu 22.04 compatible)
 
 ## Build Process
