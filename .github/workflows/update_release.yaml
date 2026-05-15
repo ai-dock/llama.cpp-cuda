@@ -1,0 +1,38 @@
+
+name: Update Flake assets on Release
+
+on:
+  release:
+    types: [published] # Triggers when a release is fully published
+
+permissions:
+  contents: write # Required to push commits back to the repo
+
+jobs:
+  update-sources:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Run update script
+        run: |
+          git checkout ${{github.ref_name}}
+          chmod +x ./update.sh
+          ./update.sh
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply"
+          
+          # Only commit if sources.json actually changed
+          if ! git diff --exit-code .; then
+            git add .
+            git commit -m "chore: update nix flake assets for ${{ github.event.release.tag_name }}"
+            git push origin ${{github.ref_name}}
+          else
+            echo "No changes detected in sources.json"
+          fi
