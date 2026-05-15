@@ -19,7 +19,7 @@
           inherit system;
           config.allowUnfree = true; # Required for CUDA
         };
-        release = builtins.fromJSON (builtins.readFile ./latest_release.json);
+        release = builtins.fromJSON (builtins.readFile "${self}/latest_release.json");
         sha256 = builtins.convertHash {
           hash = release.hash;
           toHashFormat = "sri";
