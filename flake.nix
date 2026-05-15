@@ -66,9 +66,6 @@
           buildInputs = [ self.packages.${system}.default ];
           shellHook = ''
             export LD_LIBRARY_PATH="/run/opengl-driver/lib:${pkgs.linuxPackages.nvidia_x11}/lib:$LD_LIBRARY_PATH"
-            echo "llama.cpp environment loaded."
-            echo "Available binaries:"
-            ls -p ${self.packages.${system}.default}/bin | grep -v /
           '';
         };
       }

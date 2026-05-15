@@ -67,7 +67,7 @@
       "state": "uploaded",
       "size": 159586401,
       "digest": "sha256:66437c18bf7dffaad9ecd8fb1893afea9d8644e436bfbe947ed224b50fc0f2bd",
-      "download_count": 41,
+      "download_count": 45,
       "created_at": "2026-05-15T04:48:36Z",
       "updated_at": "2026-05-15T04:48:43Z",
       "browser_download_url": "https://github.com/ai-dock/llama.cpp-cuda/releases/download/b9159/llama.cpp-b9159-cuda-12.8.tar.gz"
