@@ -55,14 +55,24 @@ jobs:
   build:
     needs: check-release
     if: needs.check-release.outputs.should_build == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.arch.runs_on }}
     strategy:
+      fail-fast: false
       matrix:
         cuda_version: ['12.8.1']
+        arch:
+          # Native runners — no QEMU. nvidia/cuda:*-cudnn-devel-ubuntu22.04 is
+          # multi-arch on Docker Hub so the same build path runs on both.
+          - { suffix: amd64, runs_on: ubuntu-latest }
+          - { suffix: arm64, runs_on: ubuntu-24.04-arm }
         include:
           - cuda_version: '12.8.1'
             cuda_version_short: '12.8'
             cuda_tag: '12.8.1-cudnn-devel-ubuntu22.04'
+            # CUDA compute capabilities target the runtime GPU, not the host
+            # CPU arch, so the same list applies to both amd64 and arm64
+            # builds. Relevant aarch64 GPU contexts (Grace Hopper, Grace
+            # Blackwell, DGX Spark) are covered by sm_90 / sm_100 / sm_120.
             architectures: '75-virtual;80-virtual;86-virtual;89-virtual;90-virtual;100-virtual;120-virtual'
     
     steps:
@@ -180,13 +190,15 @@ jobs:
       - name: Create tarball
         run: |
           cd binaries
-          tar -czf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-${{ matrix.cuda_version_short }}.tar.gz cuda-${{ matrix.cuda_version_short }}
+          tar -czf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-${{ matrix.cuda_version_short }}-${{ matrix.arch.suffix }}.tar.gz cuda-${{ matrix.cuda_version_short }}
           ls -lh *.tar.gz
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llama.cpp-cuda-${{ matrix.cuda_version_short }}
+          # Arch suffix in the artifact name so the matrix jobs do not collide
+          # in actions/download-artifact later.
+          name: llama.cpp-cuda-${{ matrix.cuda_version_short }}-${{ matrix.arch.suffix }}
           path: binaries/*.tar.gz
           retention-days: 1
 
@@ -224,21 +236,29 @@ jobs:
             **Commit:** ${{ needs.check-release.outputs.release_hash }}
             
             ## CUDA Versions
-            - CUDA 12.8 - Architectures: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
-            
-            ## Architecture Reference
+            - CUDA 12.8 - GPU compute capabilities: 7.5, 8.0, 8.6, 8.9, 9.0, 10.0, 12.0
+
+            ## Host architectures
+            Tarballs are published per host CPU architecture (Linux):
+            - `-amd64.tar.gz` — x86_64 (most desktops, servers, cloud VMs)
+            - `-arm64.tar.gz` — aarch64 (Grace Hopper / Grace Blackwell / DGX Spark / Ampere Altra)
+
+            ## GPU compute capability reference
             - 7.5: Tesla T4, RTX 20xx series, Quadro RTX
             - 8.0: A100
             - 8.6: RTX 3000 series
             - 8.9: RTX 4000 series, L4, L40
-            - 9.0: H100, H200
-            - 10.0: B200
+            - 9.0: H100, H200, GH200
+            - 10.0: B200, GB200
             - 12.0: RTX Pro series, RTX 50xx
-            
+
             ## Usage
-            Download the appropriate tarball for your CUDA version and extract:
+            Download the tarball matching your host CPU arch and CUDA version, then extract:
             ```bash
-            tar -xzf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-12.8.tar.gz
+            # amd64 host
+            tar -xzf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-12.8-amd64.tar.gz
+            # arm64 host (e.g. Grace Blackwell)
+            tar -xzf llama.cpp-${{ needs.check-release.outputs.release_tag }}-cuda-12.8-arm64.tar.gz
             ./llama-cli --help
             ```
           files: release-assets/*
