@@ -16,18 +16,29 @@ The official llama.cpp repository does not provide pre-built CUDA binaries. This
 ### CUDA Versions
 - CUDA 12.8
 
+### Host CPU Architectures
+
+Each release publishes one tarball per host CPU architecture:
+
+| Suffix | Linux platform | Typical hosts |
+|--------|----------------|---------------|
+| `-amd64` | x86_64 | Most desktops, servers, cloud VMs |
+| `-arm64` | aarch64 | Grace Hopper, Grace Blackwell, DGX Spark, Ampere Altra |
+
+The CUDA compute capabilities below target the runtime GPU and are the same on both host architectures.
+
 ### GPU Architectures
 
 | Compute Capability | GPU Examples |
-|-------------------|--------------|----------------|------------|
+|-------------------|--------------|
 | 6.1 | Titan XP, Tesla P40, GTX 10xx |
 | 7.0 | Tesla V100 |
 | 7.5 | Tesla T4, RTX 2000 series, Quadro RTX |
 | 8.0 | A100 |
 | 8.6 | RTX 3000 series |
 | 8.9 | RTX 4000 series, L4, L40 |
-| 9.0 | H100, H200 |
-| 10.0 | B200 |
+| 9.0 | H100, H200, GH200 |
+| 10.0 | B200, GB200 |
 | 12.0 | RTX Pro series, RTX 5000 series |
 
 ## Usage
@@ -35,12 +46,15 @@ The official llama.cpp repository does not provide pre-built CUDA binaries. This
 ### Download
 
 1. Go to the [Releases](../../releases) page
-2. Download the tarball (e.g., `llama.cpp-bXXXX-cuda-12.8.tar.gz`)
+2. Download the tarball matching your host CPU architecture — `-amd64` for x86_64, `-arm64` for aarch64. Filename format: `llama.cpp-bXXXX-cuda-<cuda>-<arch>.tar.gz`
 3. Extract the archive:
 
 ```bash
-tar -xzf llama.cpp-bXXXX-cuda-12.8.tar.gz
-cd cuda-12.6
+# x86_64 host
+tar -xzf llama.cpp-bXXXX-cuda-12.8-amd64.tar.gz
+# aarch64 host (e.g. Grace Blackwell, DGX Spark)
+tar -xzf llama.cpp-bXXXX-cuda-12.8-arm64.tar.gz
+cd cuda-12.8
 ```
 
 ### Run
@@ -73,7 +87,7 @@ cat VERSION.txt
 - NVIDIA GPU with compute capability 7.5 or higher
 - Appropriate NVIDIA driver for your CUDA version:
   - CUDA 12.8+: Driver >= 570.15
-- Linux x86_64 (Ubuntu 22.04 compatible)
+- Linux x86_64 or aarch64 (Ubuntu 22.04 compatible)
 
 ## Build Process
 
