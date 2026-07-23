@@ -210,6 +210,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history + tags so the tag push below is a fast-forward and
+          # duplicate tags are visible.
+          fetch-depth: 0
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -221,6 +225,26 @@ jobs:
           mkdir -p release-assets
           find artifacts -name "*.tar.gz" -exec cp {} release-assets/ \;
           ls -lh release-assets/
+
+      - name: Create advancing release tag
+        # GitHub sorts the /releases list by each release's created_at, which is
+        # the *committer date of the tag's target commit* — not the publish
+        # time. Previously softprops/action-gh-release created every tag at the
+        # static main HEAD (unchanged since May 2026), so every release reported
+        # the same created_at and the /releases list stopped reflecting recency:
+        # API consumers polling the first page never saw newer builds. Anchor
+        # each tag to a fresh empty commit whose committer date is build time so
+        # created_at advances and new releases sort to the top of the list.
+        # The commit is reachable only via its tag; main is never pushed.
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.check-release.outputs.release_tag }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty \
+            -m "llama.cpp ${TAG} (CUDA build $(date -u +%Y-%m-%dT%H:%M:%SZ))"
+          git tag "${TAG}"
+          git push origin "refs/tags/${TAG}"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
